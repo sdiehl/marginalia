@@ -1,0 +1,21 @@
+[package]
+name = "marginalia-pretty"
+description = "Wadler-style pretty-printer with trivia slots for `marginalia` pipelines"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme = "../../README.md"
+
+[dependencies]
+marginalia = { workspace = true }
+marginalia-attach = { workspace = true }
+
+[lints]
+workspace = true

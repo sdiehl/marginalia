@@ -1,0 +1,31 @@
+[package]
+name = "marginalia-calc"
+description = "Tiny calculator formatter demonstrating marginalia end-to-end"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+publish = false
+build = "build.rs"
+
+[lib]
+name = "calc"
+path = "src/lib.rs"
+
+[[bin]]
+name = "calcfmt"
+path = "src/main.rs"
+
+[dependencies]
+marginalia = { workspace = true }
+marginalia-attach = { workspace = true }
+marginalia-pretty = { workspace = true }
+logos = { workspace = true }
+lalrpop-util = { workspace = true }
+thiserror = { workspace = true }
+
+[build-dependencies]
+lalrpop = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,5 @@
+// header
+let x = 1 + 2;       // sum
+let y = x * /* offset */ 10;
+
+print y; // result

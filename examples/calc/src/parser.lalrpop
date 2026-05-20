@@ -1,0 +1,54 @@
+use crate::ast::{mk_expr, mk_stmt, BinOp, Expr, ExprKind, Program, Stmt, StmtKind};
+use crate::lexer::{LexicalError, Tok};
+use marginalia::span;
+
+grammar;
+
+extern {
+    type Location = usize;
+    type Error = LexicalError;
+
+    enum Tok {
+        "let"   => Tok::Let,
+        "print" => Tok::Print,
+        "="     => Tok::Eq,
+        ";"     => Tok::Semi,
+        "+"     => Tok::Plus,
+        "-"     => Tok::Minus,
+        "*"     => Tok::Star,
+        "/"     => Tok::Slash,
+        "("     => Tok::LParen,
+        ")"     => Tok::RParen,
+        NUM     => Tok::Num(<i64>),
+        IDENT   => Tok::Ident(<String>),
+    }
+}
+
+pub Program: Program = {
+    <l:@L> <stmts:Stmt*> <r:@R> => Program { stmts, span: span(l, r) },
+};
+
+Stmt: Stmt = {
+    <l:@L> "let" <name:IDENT> "=" <value:Expr> ";" <r:@R> =>
+        mk_stmt(l, r, StmtKind::Let { name, value }),
+    <l:@L> "print" <e:Expr> ";" <r:@R> =>
+        mk_stmt(l, r, StmtKind::Print(e)),
+};
+
+pub Expr: Expr = {
+    <l:@L> <a:Expr> "+" <b:Term> <r:@R> => mk_expr(l, r, ExprKind::Bin(BinOp::Add, Box::new(a), Box::new(b))),
+    <l:@L> <a:Expr> "-" <b:Term> <r:@R> => mk_expr(l, r, ExprKind::Bin(BinOp::Sub, Box::new(a), Box::new(b))),
+    Term,
+};
+
+Term: Expr = {
+    <l:@L> <a:Term> "*" <b:Factor> <r:@R> => mk_expr(l, r, ExprKind::Bin(BinOp::Mul, Box::new(a), Box::new(b))),
+    <l:@L> <a:Term> "/" <b:Factor> <r:@R> => mk_expr(l, r, ExprKind::Bin(BinOp::Div, Box::new(a), Box::new(b))),
+    Factor,
+};
+
+Factor: Expr = {
+    <l:@L> <n:NUM> <r:@R> => mk_expr(l, r, ExprKind::Num(n)),
+    <l:@L> <id:IDENT> <r:@R> => mk_expr(l, r, ExprKind::Var(id)),
+    <l:@L> "(" <e:Expr> ")" <r:@R> => mk_expr(l, r, ExprKind::Paren(Box::new(e))),
+};

@@ -1,0 +1,20 @@
+[package]
+name = "marginalia-attach"
+description = "Attach trivia (comments, blank lines) collected by `marginalia` to AST nodes by span"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme = "../../README.md"
+
+[dependencies]
+marginalia = { workspace = true }
+
+[lints]
+workspace = true
