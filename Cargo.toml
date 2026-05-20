@@ -1,26 +1,31 @@
 [workspace]
 resolver = "2"
-members = ["crates/marginalia", "crates/marginalia-attach", "crates/marginalia-pretty", "examples/calc"]
+members = [
+  "crates/marginalia",
+  "crates/marginalia-attach",
+  "crates/marginalia-pretty",
+  "examples/calc",
+]
 
 [workspace.package]
 version = "0.1.0"
-edition = "2021"
-rust-version = "1.85"
 authors = ["Stephen Diehl <stephen.m.diehl@gmail.com>"]
+categories = ["parser-implementations", "development-tools"]
+documentation = "https://docs.rs/marginalia"
+edition = "2021"
+homepage = "https://github.com/sdiehl/marginalia"
+keywords = ["parser", "formatter", "lalrpop", "logos", "cst"]
 license = "MIT"
 repository = "https://github.com/sdiehl/marginalia"
-homepage = "https://github.com/sdiehl/marginalia"
-documentation = "https://docs.rs/marginalia"
-keywords = ["parser", "formatter", "lalrpop", "logos", "cst"]
-categories = ["parser-implementations", "development-tools"]
+rust-version = "1.86"
 
 [workspace.dependencies]
+lalrpop = { version = "0.23", default-features = false }
+lalrpop-util = { version = "0.23", features = ["lexer"] }
+logos = "0.16"
 marginalia = { path = "crates/marginalia", version = "0.1.0" }
 marginalia-attach = { path = "crates/marginalia-attach", version = "0.1.0" }
 marginalia-pretty = { path = "crates/marginalia-pretty", version = "0.1.0" }
-logos = "0.16"
-lalrpop = { version = "0.23", default-features = false }
-lalrpop-util = { version = "0.23", features = ["lexer"] }
 thiserror = "2.0"
 
 [workspace.lints.rust]

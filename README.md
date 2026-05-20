@@ -11,7 +11,7 @@ The workspace ships three crates:
 | --------------------- | ---------------------------------------------------------------------- |
 | [`marginalia`]        | `TriviaLexer` adapter that records line/block/blank trivia on the side |
 | [`marginalia-attach`] | Attaches recorded trivia to AST node spans (leading/trailing/dangling) |
-| [`marginalia-pretty`] | Wadler-style `Doc` IR and renderer that emits trivia at the right slot |
+| [`marginalia-pretty`] | A `Doc` IR and renderer that emits trivia at the right slot            |
 
 ## Install
 
@@ -22,7 +22,7 @@ marginalia-attach = "0.1"
 marginalia-pretty = "0.1"
 ```
 
-MSRV: 1.78.
+MSRV: 1.86.
 
 ## Quickstart
 

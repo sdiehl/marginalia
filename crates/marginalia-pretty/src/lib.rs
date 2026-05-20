@@ -1,8 +1,8 @@
 //! Pretty-printing harness for `marginalia` pipelines.
 //!
-//! A small Wadler-style `Doc` IR with explicit trivia slots that the renderer
-//! resolves against a `CommentMap`. User code implements `Format` per AST
-//! node and never has to think about comments directly.
+//! A small `Doc` IR with explicit trivia slots that the renderer resolves
+//! against a `CommentMap`. User code implements `Format` per AST node and
+//! never has to think about comments directly.
 
 mod doc;
 mod format;
