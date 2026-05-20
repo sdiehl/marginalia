@@ -1,8 +1,8 @@
 use std::fmt;
 
 use logos::{Lexer, Logos};
-use thiserror::Error;
 use marginalia::{Classify, TriviaKind, TriviaPiece};
+use thiserror::Error;
 
 #[derive(Clone, Debug, Logos, PartialEq, Eq)]
 #[logos(skip r"[ \t\f\r\n]+")]

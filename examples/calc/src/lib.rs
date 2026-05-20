@@ -1,10 +1,10 @@
 //! Tiny calculator language with trivia-preserving formatting.
 
 use lalrpop_util::lalrpop_mod;
-use thiserror::Error;
 use marginalia::{TriviaLexer, TriviaTable};
 use marginalia_attach::{attach, AttachOptions};
 use marginalia_pretty::{render, Format, RenderOpts};
+use thiserror::Error;
 
 pub mod ast;
 pub mod fmt;

@@ -5,7 +5,7 @@ members = ["crates/marginalia", "crates/marginalia-attach", "crates/marginalia-p
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.78"
+rust-version = "1.85"
 authors = ["Stephen Diehl <stephen.m.diehl@gmail.com>"]
 license = "MIT"
 repository = "https://github.com/sdiehl/marginalia"
