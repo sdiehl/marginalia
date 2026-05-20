@@ -68,6 +68,22 @@ pub fn render(doc: &Doc, comments: &CommentMap, opts: RenderOpts) -> String {
                 mode,
                 doc: inner,
             }),
+            Doc::Align(inner) => stack.push(Frame {
+                indent: isize::try_from(col).unwrap_or(indent),
+                mode,
+                doc: inner,
+            }),
+            Doc::FlatAlt(flat, broken) => {
+                let chosen = match mode {
+                    Mode::Flat => flat,
+                    Mode::Break => broken,
+                };
+                stack.push(Frame {
+                    indent,
+                    mode,
+                    doc: chosen,
+                });
+            }
             Doc::Group(inner) => {
                 let inner_indent = usize::try_from(indent.max(0)).unwrap_or(0);
                 let chosen = if fits(opts.width.saturating_sub(col), inner, &stack) {
@@ -170,7 +186,8 @@ fn fits(mut remaining: usize, doc: &Doc, rest: &[Frame<'_>]) -> bool {
                 remaining -= 1;
             }
             Doc::HardLine => return true,
-            Doc::Indent(_, inner) | Doc::Group(inner) => local.push(inner),
+            Doc::Indent(_, inner) | Doc::Group(inner) | Doc::Align(inner) => local.push(inner),
+            Doc::FlatAlt(flat, _) => local.push(flat),
             Doc::Concat(parts) => {
                 for p in parts.iter().rev() {
                     local.push(p);
