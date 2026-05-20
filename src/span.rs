@@ -1,9 +1,30 @@
-use std::fmt;
+use std::{fmt, ops::Range};
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Span {
     pub start: usize,
     pub end: usize,
+}
+
+impl From<(usize, usize)> for Span {
+    fn from((start, end): (usize, usize)) -> Self {
+        Self { start, end }
+    }
+}
+
+impl From<Range<usize>> for Span {
+    fn from(r: Range<usize>) -> Self {
+        Self {
+            start: r.start,
+            end: r.end,
+        }
+    }
+}
+
+impl From<Span> for Range<usize> {
+    fn from(s: Span) -> Self {
+        s.start..s.end
+    }
 }
 
 impl Span {

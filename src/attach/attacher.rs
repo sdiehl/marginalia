@@ -60,8 +60,6 @@ fn place_event(
 
     if let Some(n) = next {
         map.entry(n).leading.push(event.trivia.clone());
-    } else if let Some(p) = prev {
-        map.entry(p).trailing.push(event.trivia.clone());
     } else {
         map.push_dangling(event.trivia.clone());
     }

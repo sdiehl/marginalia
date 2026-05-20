@@ -32,6 +32,10 @@ impl TriviaTable {
             .filter(move |e| e.span.start >= lo && e.span.end <= hi)
     }
 
+    pub fn events_in(&self, span: Span) -> impl Iterator<Item = &TriviaEvent> {
+        self.between(span.start, span.end)
+    }
+
     pub fn after(&self, pos: usize) -> impl Iterator<Item = &TriviaEvent> {
         self.events.iter().filter(move |e| e.span.start >= pos)
     }

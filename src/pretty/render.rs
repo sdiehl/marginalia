@@ -1,10 +1,14 @@
+use std::collections::HashSet;
+
 use super::doc::{Doc, Side, TriviaSlot};
-use crate::{attach::CommentMap, Trivia};
+use crate::{attach::CommentMap, Span, Trivia};
 
 #[derive(Clone, Copy, Debug)]
 pub struct RenderOpts {
     pub width: usize,
     pub indent: usize,
+    /// Append unattached (dangling) trivia at the end of the document.
+    pub emit_dangling: bool,
 }
 
 impl Default for RenderOpts {
@@ -12,6 +16,7 @@ impl Default for RenderOpts {
         Self {
             width: 80,
             indent: 2,
+            emit_dangling: true,
         }
     }
 }
@@ -37,6 +42,7 @@ pub fn render(doc: &Doc, comments: &CommentMap, opts: RenderOpts) -> String {
         doc,
     }];
     let mut col: usize = 0;
+    let mut emitted: HashSet<(Span, Side)> = HashSet::new();
 
     while let Some(Frame { indent, mode, doc }) = stack.pop() {
         match doc {
@@ -85,11 +91,50 @@ pub fn render(doc: &Doc, comments: &CommentMap, opts: RenderOpts) -> String {
                     });
                 }
             }
-            Doc::Trivia(slot) => emit_trivia(*slot, comments, &mut out, &mut col, indent),
+            Doc::Trivia(slot) => {
+                if emitted.insert((slot.span, slot.side)) {
+                    emit_trivia(*slot, comments, &mut out, &mut col, indent);
+                }
+            }
         }
     }
 
+    if opts.emit_dangling {
+        emit_dangling(comments.dangling(), &mut out, &mut col);
+    }
+
     out
+}
+
+fn emit_dangling(items: &[Trivia], out: &mut String, col: &mut usize) {
+    if items.is_empty() {
+        return;
+    }
+    if !out.is_empty() {
+        if *col != 0 {
+            out.push('\n');
+        }
+        out.push('\n');
+        *col = 0;
+    }
+    for t in items {
+        match t {
+            Trivia::BlankLine => {
+                out.push('\n');
+                *col = 0;
+            }
+            Trivia::Line(s) | Trivia::Block(s) => {
+                if *col != 0 {
+                    out.push('\n');
+                    *col = 0;
+                }
+                out.push_str(s);
+                *col += s.len();
+                out.push('\n');
+                *col = 0;
+            }
+        }
+    }
 }
 
 fn newline(out: &mut String, col: &mut usize, indent: isize) {

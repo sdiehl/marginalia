@@ -12,6 +12,13 @@ impl HasSpan for Span {
     }
 }
 
+/// Comments attached to a single anchor span.
+///
+/// `leading` comments precede the anchor (each rendered on its own line).
+/// `trailing` comments follow the anchor on the *same source line* — the
+/// attacher only populates this slot when the comment was on the same line
+/// as the anchor's last token. Comments separated by a line break instead
+/// become leading on the next anchor, or dangling if no next anchor exists.
 #[derive(Clone, Debug, Default)]
 pub struct Comments {
     pub leading: Vec<Trivia>,
