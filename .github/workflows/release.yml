@@ -15,9 +15,4 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Publish marginalia
-        run: cargo publish -p marginalia --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-      - name: Publish marginalia-attach
-        run: cargo publish -p marginalia-attach --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-      - name: Publish marginalia-pretty
-        run: cargo publish -p marginalia-pretty --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - run: cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
