@@ -43,10 +43,6 @@ roundtrip and comment preservation. Read it end-to-end as the canonical integrat
 just calc examples/calc/tests/input.calc
 ```
 
-## MSRV
-
-Rust 1.86.
-
 ## License
 
 MIT. See [LICENSE](LICENSE).
