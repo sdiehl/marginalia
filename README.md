@@ -13,19 +13,6 @@ The workspace ships three crates:
 | [`marginalia-attach`] | Attaches recorded trivia to AST node spans (leading/trailing/dangling) |
 | [`marginalia-pretty`] | A `Doc` IR and renderer that emits trivia at the right slot            |
 
-## Install
-
-```toml
-[dependencies]
-marginalia = "0.1"
-marginalia-attach = "0.1"
-marginalia-pretty = "0.1"
-```
-
-MSRV: 1.86.
-
-## Quickstart
-
 The shape of an integration:
 
 ```rust,ignore
@@ -55,20 +42,6 @@ roundtrip and comment preservation. Read it end-to-end as the canonical integrat
 just calc examples/calc/tests/input.calc
 ```
 
-## Development
-
-```bash
-just test    # cargo test --workspace
-just lint    # fmt + clippy
-just fmt     # cargo fmt + dprint
-```
-
 ## License
 
 MIT. See [LICENSE](LICENSE).
-
-[logos]: https://github.com/maciejhirsz/logos
-[lalrpop]: https://github.com/lalrpop/lalrpop
-[`marginalia`]: crates/marginalia
-[`marginalia-attach`]: crates/marginalia-attach
-[`marginalia-pretty`]: crates/marginalia-pretty
