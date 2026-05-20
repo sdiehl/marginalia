@@ -40,7 +40,7 @@ The lexer must yield `Result<(usize, Tok, usize), E>` and `Tok` must implement
 roundtrip and comment preservation. Read it end-to-end as the canonical integration template:
 
 ```bash
-just calc examples/calc/tests/input.calc
+cargo run -p marginalia-calc -- examples/calc/tests/input.calc
 ```
 
 ## License
