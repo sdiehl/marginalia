@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use marginalia::{Span, Trivia};
+use crate::{Span, Trivia};
 
 pub trait HasSpan {
     fn span(&self) -> Span;

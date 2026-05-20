@@ -1,4 +1,4 @@
-use marginalia_pretty::{concat, group, hardline, text, with_trivia, Doc, Format};
+use marginalia::pretty::{concat, group, hardline, text, with_trivia, Doc, Format};
 
 use crate::ast::{BinOp, Expr, ExprKind, Program, Stmt, StmtKind};
 

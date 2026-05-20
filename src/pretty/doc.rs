@@ -1,4 +1,4 @@
-use marginalia::Span;
+use crate::Span;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Side {

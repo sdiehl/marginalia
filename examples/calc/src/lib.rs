@@ -1,9 +1,11 @@
 //! Tiny calculator language with trivia-preserving formatting.
 
 use lalrpop_util::lalrpop_mod;
-use marginalia::{TriviaLexer, TriviaTable};
-use marginalia_attach::{attach, AttachOptions};
-use marginalia_pretty::{render, Format, RenderOpts};
+use marginalia::{
+    attach::{attach, AttachOptions},
+    pretty::{render, Format, RenderOpts},
+    TriviaLexer, TriviaTable,
+};
 use thiserror::Error;
 
 pub mod ast;

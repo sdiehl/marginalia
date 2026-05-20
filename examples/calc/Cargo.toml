@@ -20,8 +20,6 @@ path = "src/main.rs"
 lalrpop-util = { workspace = true }
 logos = { workspace = true }
 marginalia = { workspace = true }
-marginalia-attach = { workspace = true }
-marginalia-pretty = { workspace = true }
 thiserror = { workspace = true }
 
 [build-dependencies]

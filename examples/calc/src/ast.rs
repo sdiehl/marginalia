@@ -1,5 +1,4 @@
-use marginalia::{span, Span};
-use marginalia_attach::HasSpan;
+use marginalia::{attach::HasSpan, span, Span};
 
 #[derive(Clone, Debug)]
 pub struct Program {

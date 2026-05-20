@@ -1,11 +1,6 @@
 [workspace]
 resolver = "2"
-members = [
-  "crates/marginalia",
-  "crates/marginalia-attach",
-  "crates/marginalia-pretty",
-  "examples/calc",
-]
+members = ["examples/calc"]
 
 [workspace.package]
 version = "0.1.0"
@@ -23,9 +18,7 @@ rust-version = "1.86"
 lalrpop = { version = "0.23", default-features = false }
 lalrpop-util = { version = "0.23", features = ["lexer"] }
 logos = "0.16"
-marginalia = { path = "crates/marginalia", version = "0.1.0" }
-marginalia-attach = { path = "crates/marginalia-attach", version = "0.1.0" }
-marginalia-pretty = { path = "crates/marginalia-pretty", version = "0.1.0" }
+marginalia = { path = ".", version = "0.1.0" }
 thiserror = "2.0"
 
 [workspace.lints.rust]
@@ -48,6 +41,24 @@ similar_names = "allow"
 too_many_lines = "allow"
 struct_field_names = "allow"
 needless_for_each = "allow"
+
+[package]
+name = "marginalia"
+version.workspace = true
+authors.workspace = true
+categories.workspace = true
+documentation.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+readme = "README.md"
+repository.workspace = true
+rust-version.workspace = true
+description = "Trivia-preserving parsing and formatting for logos + lalrpop"
+
+[lints]
+workspace = true
 
 [profile.release]
 lto = "thin"

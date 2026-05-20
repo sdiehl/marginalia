@@ -5,20 +5,21 @@ Trivia-preserving parsing and formatting for [logos] + [lalrpop] grammars.
 `marginalia` plugs into the standard Rust parsing stack and keeps comments and blank lines around
 the AST, so you can write a formatter for your language without losing the user's notes.
 
-The workspace ships three crates:
+The crate has three layers, all in one place:
 
-| crate                 | role                                                                   |
-| --------------------- | ---------------------------------------------------------------------- |
-| [`marginalia`]        | `TriviaLexer` adapter that records line/block/blank trivia on the side |
-| [`marginalia-attach`] | Attaches recorded trivia to AST node spans (leading/trailing/dangling) |
-| [`marginalia-pretty`] | A `Doc` IR and renderer that emits trivia at the right slot            |
+- `TriviaLexer` adapts any `Iterator<Item = Result<(usize, Tok, usize), E>>` and records line,
+  block, and blank-line trivia in a `TriviaTable` while the parser sees only semantic tokens.
+- `marginalia::attach` places those trivia events on AST node spans as leading, trailing, or
+  dangling comments.
+- `marginalia::pretty` is a small `Doc` IR with explicit trivia slots that the renderer resolves
+  against a `CommentMap`.
 
 The shape of an integration:
 
 ```rust,ignore
 use marginalia::TriviaLexer;
-use marginalia_attach::{attach, AttachOptions};
-use marginalia_pretty::{render, RenderOpts};
+use marginalia::attach::{attach, AttachOptions};
+use marginalia::pretty::{render, RenderOpts};
 
 let raw = my_logos_lexer(source);
 let mut lex = TriviaLexer::new(raw, source);
@@ -42,6 +43,13 @@ roundtrip and comment preservation. Read it end-to-end as the canonical integrat
 just calc examples/calc/tests/input.calc
 ```
 
+## MSRV
+
+Rust 1.86.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+[logos]: https://crates.io/crates/logos
+[lalrpop]: https://crates.io/crates/lalrpop

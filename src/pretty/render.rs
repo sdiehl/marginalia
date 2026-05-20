@@ -1,7 +1,5 @@
-use marginalia::Trivia;
-use marginalia_attach::CommentMap;
-
-use crate::doc::{Doc, Side, TriviaSlot};
+use super::doc::{Doc, Side, TriviaSlot};
+use crate::{attach::CommentMap, Trivia};
 
 #[derive(Clone, Copy, Debug)]
 pub struct RenderOpts {

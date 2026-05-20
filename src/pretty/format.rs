@@ -1,6 +1,5 @@
-use marginalia::Span;
-
-use crate::doc::{concat, trivia, Doc, Side};
+use super::doc::{concat, trivia, Doc, Side};
+use crate::Span;
 
 pub trait Format {
     fn doc(&self) -> Doc;

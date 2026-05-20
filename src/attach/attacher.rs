@@ -1,6 +1,5 @@
-use marginalia::{Span, TriviaEvent, TriviaTable};
-
-use crate::map::{CommentMap, HasSpan};
+use super::map::{CommentMap, HasSpan};
+use crate::{Span, TriviaEvent, TriviaTable};
 
 #[derive(Clone, Copy, Debug)]
 pub struct AttachOptions {
