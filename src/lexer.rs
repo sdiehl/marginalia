@@ -4,21 +4,21 @@ use crate::{
     classify::Classify,
     span::Span,
     table::{TriviaEvent, TriviaTable},
-    trivia::Trivia,
+    trivia::{BuiltinKind, Trivia},
 };
 
-pub struct TriviaLexer<I, T, E> {
+pub struct TriviaLexer<I, T, E, K = BuiltinKind> {
     inner: I,
     source: String,
-    table: TriviaTable,
+    table: TriviaTable<K>,
     cursor: usize,
     _marker: PhantomData<fn() -> Result<T, E>>,
 }
 
-impl<I, T, E> TriviaLexer<I, T, E>
+impl<I, T, E, K> TriviaLexer<I, T, E, K>
 where
     I: Iterator<Item = Result<(usize, T, usize), E>>,
-    T: Classify,
+    T: Classify<K>,
 {
     pub fn new(inner: I, source: impl Into<String>) -> Self {
         Self {
@@ -30,15 +30,15 @@ where
         }
     }
 
-    pub fn table(&self) -> &TriviaTable {
+    pub fn table(&self) -> &TriviaTable<K> {
         &self.table
     }
 
-    pub fn into_table(self) -> TriviaTable {
+    pub fn into_table(self) -> TriviaTable<K> {
         self.table
     }
 
-    pub fn into_parts(self) -> (String, TriviaTable) {
+    pub fn into_parts(self) -> (String, TriviaTable<K>) {
         (self.source, self.table)
     }
 
@@ -54,10 +54,10 @@ where
     }
 }
 
-impl<I, T, E> Iterator for TriviaLexer<I, T, E>
+impl<I, T, E, K> Iterator for TriviaLexer<I, T, E, K>
 where
     I: Iterator<Item = Result<(usize, T, usize), E>>,
-    T: Classify,
+    T: Classify<K>,
 {
     type Item = Result<(usize, T, usize), E>;
 
@@ -69,7 +69,10 @@ where
                         self.record_blank_lines(lo);
                         self.table.push(TriviaEvent {
                             span: Span::new(lo, hi),
-                            trivia: Trivia::from_kind(piece.kind, piece.text),
+                            trivia: Trivia::Comment {
+                                kind: piece.kind,
+                                text: piece.text.to_owned(),
+                            },
                         });
                         self.cursor = hi;
                         continue;
@@ -84,7 +87,7 @@ where
     }
 }
 
-impl<I, T, E> std::fmt::Debug for TriviaLexer<I, T, E> {
+impl<I, T, E, K> std::fmt::Debug for TriviaLexer<I, T, E, K> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TriviaLexer")
             .field("events", &self.table.len())

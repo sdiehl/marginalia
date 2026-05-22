@@ -1,7 +1,7 @@
 use std::fmt;
 
 use logos::{Lexer, Logos};
-use marginalia::{Classify, TriviaKind, TriviaPiece};
+use marginalia::{BuiltinKind, Classify, TriviaPiece};
 use thiserror::Error;
 
 #[derive(Clone, Debug, Logos, PartialEq, Eq)]
@@ -46,11 +46,11 @@ impl Classify for Tok {
     fn trivia(&self) -> Option<TriviaPiece<'_>> {
         match self {
             Self::LineComment(s) => Some(TriviaPiece {
-                kind: TriviaKind::Line,
+                kind: BuiltinKind::Line,
                 text: s,
             }),
             Self::BlockComment(s) => Some(TriviaPiece {
-                kind: TriviaKind::Block,
+                kind: BuiltinKind::Block,
                 text: s,
             }),
             _ => None,

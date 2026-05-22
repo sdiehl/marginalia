@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use super::doc::{Doc, Side, TriviaSlot};
-use crate::{attach::CommentMap, Span, Trivia};
+use crate::{attach::CommentMap, trivia::TriviaClass, Span, Trivia};
 
 #[derive(Clone, Copy, Debug)]
 pub struct RenderOpts {
@@ -34,7 +34,7 @@ struct Frame<'a> {
 }
 
 #[must_use]
-pub fn render(doc: &Doc, comments: &CommentMap, opts: RenderOpts) -> String {
+pub fn render<K: TriviaClass>(doc: &Doc, comments: &CommentMap<K>, opts: RenderOpts) -> String {
     let mut out = String::new();
     let mut stack: Vec<Frame<'_>> = vec![Frame {
         indent: 0,
@@ -122,7 +122,7 @@ pub fn render(doc: &Doc, comments: &CommentMap, opts: RenderOpts) -> String {
     out
 }
 
-fn emit_dangling(items: &[Trivia], out: &mut String, col: &mut usize) {
+fn emit_dangling<K>(items: &[Trivia<K>], out: &mut String, col: &mut usize) {
     if items.is_empty() {
         return;
     }
@@ -139,13 +139,13 @@ fn emit_dangling(items: &[Trivia], out: &mut String, col: &mut usize) {
                 out.push('\n');
                 *col = 0;
             }
-            Trivia::Line(s) | Trivia::Block(s) => {
+            Trivia::Comment { text, .. } => {
                 if *col != 0 {
                     out.push('\n');
                     *col = 0;
                 }
-                out.push_str(s);
-                *col += s.len();
+                out.push_str(text);
+                *col += text.len();
                 out.push('\n');
                 *col = 0;
             }
@@ -185,7 +185,7 @@ fn fits(mut remaining: usize, doc: &Doc, rest: &[Frame<'_>]) -> bool {
                 }
                 remaining -= 1;
             }
-            Doc::HardLine => return true,
+            Doc::HardLine => return false,
             Doc::Indent(_, inner) | Doc::Group(inner) | Doc::Align(inner) => local.push(inner),
             Doc::FlatAlt(flat, _) => local.push(flat),
             Doc::Concat(parts) => {
@@ -197,14 +197,14 @@ fn fits(mut remaining: usize, doc: &Doc, rest: &[Frame<'_>]) -> bool {
     }
 }
 
-fn emit_trivia(
+fn emit_trivia<K: TriviaClass>(
     slot: TriviaSlot,
-    comments: &CommentMap,
+    comments: &CommentMap<K>,
     out: &mut String,
     col: &mut usize,
     indent: isize,
 ) {
-    let items: &[Trivia] = match slot.side {
+    let items: &[Trivia<K>] = match slot.side {
         Side::Leading => comments.leading(slot.span),
         Side::Trailing => comments.trailing(slot.span),
     };
@@ -217,7 +217,12 @@ fn emit_trivia(
     }
 }
 
-fn emit_leading(items: &[Trivia], out: &mut String, col: &mut usize, indent: isize) {
+fn emit_leading<K: TriviaClass>(
+    items: &[Trivia<K>],
+    out: &mut String,
+    col: &mut usize,
+    indent: isize,
+) {
     let leading_needs_newline = *col != usize::try_from(indent.max(0)).unwrap_or(0);
     if leading_needs_newline {
         newline(out, col, indent);
@@ -230,39 +235,40 @@ fn emit_leading(items: &[Trivia], out: &mut String, col: &mut usize, indent: isi
                     *col = 0;
                 }
             }
-            Trivia::Line(s) | Trivia::Block(s) => {
+            Trivia::Comment { text, .. } => {
                 if i > 0 {
                     newline(out, col, indent);
                 }
-                out.push_str(s);
-                *col += s.len();
+                out.push_str(text);
+                *col += text.len();
             }
         }
     }
     newline(out, col, indent);
 }
 
-fn emit_trailing(items: &[Trivia], out: &mut String, col: &mut usize, indent: isize) {
+fn emit_trailing<K: TriviaClass>(
+    items: &[Trivia<K>],
+    out: &mut String,
+    col: &mut usize,
+    indent: isize,
+) {
     let mut first = true;
     for t in items {
         match t {
             Trivia::BlankLine => {}
-            Trivia::Line(s) => {
+            Trivia::Comment { kind, text } => {
                 if first {
                     out.push(' ');
                     *col += 1;
-                } else {
+                } else if kind.is_line_like() {
                     newline(out, col, indent);
+                } else {
+                    out.push(' ');
+                    *col += 1;
                 }
-                out.push_str(s);
-                *col += s.len();
-                first = false;
-            }
-            Trivia::Block(s) => {
-                out.push(' ');
-                *col += 1;
-                out.push_str(s);
-                *col += s.len();
+                out.push_str(text);
+                *col += text.len();
                 first = false;
             }
         }

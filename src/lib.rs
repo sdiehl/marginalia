@@ -8,6 +8,10 @@
 //! - [`pretty`] is a small `Doc` IR with explicit trivia slots that the
 //!   renderer resolves against a `CommentMap`.
 //!
+//! Trivia is generic over a kind enum `K` so downstream crates can carry a
+//! richer classification through every layer. The default `K = BuiltinKind`
+//! covers the common line/block distinction without any extra wiring.
+//!
 //! See the `calc` example for an end-to-end integration.
 
 mod classify;
@@ -23,4 +27,4 @@ pub use classify::{Classify, TriviaPiece};
 pub use lexer::TriviaLexer;
 pub use span::{span, Span};
 pub use table::{TriviaEvent, TriviaTable};
-pub use trivia::{Trivia, TriviaKind};
+pub use trivia::{BuiltinKind, Trivia, TriviaClass};

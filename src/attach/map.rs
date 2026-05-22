@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::{Span, Trivia};
+use crate::{trivia::BuiltinKind, Span, Trivia};
 
 pub trait HasSpan {
     fn span(&self) -> Span;
@@ -19,26 +19,44 @@ impl HasSpan for Span {
 /// attacher only populates this slot when the comment was on the same line
 /// as the anchor's last token. Comments separated by a line break instead
 /// become leading on the next anchor, or dangling if no next anchor exists.
-#[derive(Clone, Debug, Default)]
-pub struct Comments {
-    pub leading: Vec<Trivia>,
-    pub trailing: Vec<Trivia>,
+#[derive(Clone, Debug)]
+pub struct Comments<K = BuiltinKind> {
+    pub leading: Vec<Trivia<K>>,
+    pub trailing: Vec<Trivia<K>>,
 }
 
-impl Comments {
+impl<K> Default for Comments<K> {
+    fn default() -> Self {
+        Self {
+            leading: Vec::new(),
+            trailing: Vec::new(),
+        }
+    }
+}
+
+impl<K> Comments<K> {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.leading.is_empty() && self.trailing.is_empty()
     }
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct CommentMap {
-    by_span: BTreeMap<Span, Comments>,
-    dangling: Vec<Trivia>,
+#[derive(Clone, Debug)]
+pub struct CommentMap<K = BuiltinKind> {
+    by_span: BTreeMap<Span, Comments<K>>,
+    dangling: Vec<Trivia<K>>,
 }
 
-impl CommentMap {
+impl<K> Default for CommentMap<K> {
+    fn default() -> Self {
+        Self {
+            by_span: BTreeMap::new(),
+            dangling: Vec::new(),
+        }
+    }
+}
+
+impl<K> CommentMap<K> {
     #[must_use]
     pub const fn new() -> Self {
         Self {
@@ -47,35 +65,35 @@ impl CommentMap {
         }
     }
 
-    pub fn entry(&mut self, span: Span) -> &mut Comments {
+    pub fn entry(&mut self, span: Span) -> &mut Comments<K> {
         self.by_span.entry(span).or_default()
     }
 
     #[must_use]
-    pub fn get(&self, span: Span) -> Option<&Comments> {
+    pub fn get(&self, span: Span) -> Option<&Comments<K>> {
         self.by_span.get(&span)
     }
 
     #[must_use]
-    pub fn leading(&self, span: Span) -> &[Trivia] {
+    pub fn leading(&self, span: Span) -> &[Trivia<K>] {
         self.by_span
             .get(&span)
             .map_or(&[][..], |c| c.leading.as_slice())
     }
 
     #[must_use]
-    pub fn trailing(&self, span: Span) -> &[Trivia] {
+    pub fn trailing(&self, span: Span) -> &[Trivia<K>] {
         self.by_span
             .get(&span)
             .map_or(&[][..], |c| c.trailing.as_slice())
     }
 
     #[must_use]
-    pub fn dangling(&self) -> &[Trivia] {
+    pub fn dangling(&self) -> &[Trivia<K>] {
         &self.dangling
     }
 
-    pub fn push_dangling(&mut self, t: Trivia) {
+    pub fn push_dangling(&mut self, t: Trivia<K>) {
         self.dangling.push(t);
     }
 

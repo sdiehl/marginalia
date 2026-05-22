@@ -14,12 +14,12 @@ impl Default for AttachOptions {
     }
 }
 
-pub fn attach<N: HasSpan>(
+pub fn attach<N: HasSpan, K: Clone + Default>(
     source: &str,
-    table: &TriviaTable,
+    table: &TriviaTable<K>,
     nodes: impl IntoIterator<Item = N>,
     opts: AttachOptions,
-) -> CommentMap {
+) -> CommentMap<K> {
     let mut spans: Vec<Span> = nodes.into_iter().map(|n| n.span()).collect();
     spans.sort_unstable();
     spans.dedup();
@@ -31,11 +31,11 @@ pub fn attach<N: HasSpan>(
     map
 }
 
-fn place_event(
+fn place_event<K: Clone + Default>(
     source: &str,
-    event: &TriviaEvent,
+    event: &TriviaEvent<K>,
     spans: &[Span],
-    map: &mut CommentMap,
+    map: &mut CommentMap<K>,
     opts: AttachOptions,
 ) {
     let lo = event.span.start;

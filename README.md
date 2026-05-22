@@ -34,6 +34,11 @@ let formatted = render(&doc, &map, RenderOpts::default());
 The lexer must yield `Result<(usize, Tok, usize), E>` and `Tok` must implement
 `marginalia::Classify` so marginalia knows which tokens are comments.
 
+`Classify`, `Trivia`, `TriviaTable`, and `CommentMap` are all generic over a kind enum `K` (default
+`BuiltinKind = Line | Block`). A language that needs richer categories supplies its own enum and an
+`impl Classify<MyKind> for MyTok`. The renderer requires `K: TriviaClass` so it knows which trailing
+comments terminate a line.
+
 ## Example
 
 [`examples/calc`](examples/calc) is a 200-line calculator language with full lex + parse + format
