@@ -3,7 +3,7 @@
 ///
 /// Downstream crates that need finer categories (doc comments, attributes,
 /// region markers, etc.) define their own kind enum and parameterize
-/// [`Trivia`] / [`TriviaTable`] / [`crate::attach::CommentMap`] with it.
+/// [`Trivia`] / [`crate::TriviaTable`] / [`crate::attach::CommentMap`] with it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum BuiltinKind {
     /// Comment that runs to end-of-line.
