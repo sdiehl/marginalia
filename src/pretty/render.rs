@@ -6,6 +6,11 @@ use crate::{attach::CommentMap, trivia::TriviaClass, Span, Trivia};
 #[derive(Clone, Copy, Debug)]
 pub struct RenderOpts {
     pub width: usize,
+    /// Starting indentation level, in columns. The document renders as if the
+    /// cursor already sits at this column: width is budgeted from here and
+    /// broken lines pad to at least this much, but the first line is *not*
+    /// pre-padded (the caller positions it). This is what lets a `Doc` render
+    /// into an already-indented slot of a larger, string-built output.
     pub indent: usize,
     /// Append unattached (dangling) trivia at the end of the document.
     pub emit_dangling: bool,
@@ -15,7 +20,7 @@ impl Default for RenderOpts {
     fn default() -> Self {
         Self {
             width: 80,
-            indent: 2,
+            indent: 0,
             emit_dangling: true,
         }
     }
@@ -35,13 +40,16 @@ struct Frame<'a> {
 
 #[must_use]
 pub fn render<K: TriviaClass>(doc: &Doc, comments: &CommentMap<K>, opts: RenderOpts) -> String {
+    let base = isize::try_from(opts.indent).unwrap_or(0);
     let mut out = String::new();
     let mut stack: Vec<Frame<'_>> = vec![Frame {
-        indent: 0,
+        indent: base,
         mode: Mode::Break,
         doc,
     }];
-    let mut col: usize = 0;
+    // Start as if the cursor is already at `indent`, so width budgeting and
+    // group-fit decisions account for the slot the caller placed us in.
+    let mut col: usize = opts.indent;
     let mut emitted: HashSet<(Span, Side)> = HashSet::new();
 
     while let Some(Frame { indent, mode, doc }) = stack.pop() {
@@ -120,6 +128,37 @@ pub fn render<K: TriviaClass>(doc: &Doc, comments: &CommentMap<K>, opts: RenderO
     }
 
     out
+}
+
+/// Render a `Doc` at `width` with no comments — the common trivia-free case,
+/// without having to spell out a [`CommentMap`] and [`RenderOpts`].
+#[must_use]
+pub fn pretty(doc: &Doc, width: usize) -> String {
+    pretty_at(doc, width, 0)
+}
+
+/// Like [`pretty`], but starting in a slot already indented `indent` columns —
+/// the shortcut for dropping a `Doc` into an already-indented position of a
+/// larger, string-built output. See [`RenderOpts::indent`].
+#[must_use]
+pub fn pretty_at(doc: &Doc, width: usize, indent: usize) -> String {
+    render(
+        doc,
+        &CommentMap::<crate::BuiltinKind>::default(),
+        RenderOpts {
+            width,
+            indent,
+            emit_dangling: false,
+        },
+    )
+}
+
+/// Render a `Doc` flattened onto a single line (soft breaks collapsed). A
+/// `hardline` still breaks. Equivalent to rendering [`super::flatten`] of the
+/// document at unbounded width.
+#[must_use]
+pub fn pretty_flat(doc: &Doc) -> String {
+    pretty(&super::doc::flatten(doc), usize::MAX)
 }
 
 fn emit_dangling<K>(items: &[Trivia<K>], out: &mut String, col: &mut usize) {
@@ -272,5 +311,73 @@ fn emit_trailing<K: TriviaClass>(
                 first = false;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::pretty::{
+        block, comma, flatten, group, lparen, pretty, pretty_flat, rparen, text, Block, RenderOpts,
+    };
+
+    // A group that breaks at a narrow width flattens back onto one line.
+    #[test]
+    fn flatten_collapses_breaks() {
+        let d = group(text("a").line(text("b")).line(text("c")));
+        assert_eq!(pretty(&d, 1), "a\nb\nc");
+        assert_eq!(pretty_flat(&d), "a b c");
+        assert_eq!(pretty(&flatten(&d), 1), "a b c");
+    }
+
+    // `block` is tight on one line when it fits.
+    #[test]
+    fn block_flat() {
+        let d = block(
+            lparen(),
+            rparen(),
+            &comma(),
+            [text("a"), text("b"), text("c")],
+        );
+        assert_eq!(pretty(&d, 80), "(a, b, c)");
+    }
+
+    // ...and explodes to one item per line (two-space hang) when it does not.
+    #[test]
+    fn block_broken() {
+        let d = block(lparen(), rparen(), &comma(), [text("aaa"), text("bbb")]);
+        assert_eq!(pretty(&d, 5), "(\n  aaa,\n  bbb\n)");
+    }
+
+    // Padded + trailing is the record shape: inner spaces flat, trailing comma
+    // when broken.
+    #[test]
+    fn block_record_shape() {
+        let style = Block::default().padded().trailing();
+        let items = || [text("x = 1"), text("y = 2")];
+        let flat = style.of(text("{"), text("}"), &comma(), items());
+        assert_eq!(pretty(&flat, 80), "{ x = 1, y = 2 }");
+        let broken = style.of(text("{"), text("}"), &comma(), items());
+        assert_eq!(pretty(&broken, 5), "{\n  x = 1,\n  y = 2,\n}");
+    }
+
+    // `RenderOpts.indent` budgets width from the slot and pads continuation
+    // lines, without pre-padding the first line.
+    #[test]
+    fn indent_offsets_continuations() {
+        let d = block(lparen(), rparen(), &comma(), [text("aaa"), text("bbb")]);
+        let out = pretty_at(&d, 10, 4);
+        assert_eq!(out, "(\n      aaa,\n      bbb\n    )");
+    }
+
+    fn pretty_at(d: &crate::pretty::Doc, width: usize, indent: usize) -> String {
+        crate::pretty::render(
+            d,
+            &crate::attach::CommentMap::<crate::BuiltinKind>::default(),
+            RenderOpts {
+                width,
+                indent,
+                emit_dangling: false,
+            },
+        )
     }
 }

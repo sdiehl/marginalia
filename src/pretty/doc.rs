@@ -307,3 +307,110 @@ impl Doc {
         self.append(softline()).append(other)
     }
 }
+
+/// Force a subtree onto one line: `line` becomes a space, `softline` vanishes,
+/// and `group` / `flat_alt` collapse to their flat layout. A `hardline` still
+/// breaks — a mandatory break cannot be flattened — matching Wadler `flatten`.
+///
+/// Useful when a context forbids layout regardless of width (a bracketed or
+/// offside-suppressed region), so you can keep building one `Doc` per construct
+/// and flatten it at the boundary rather than maintaining a separate flat path.
+#[must_use]
+pub fn flatten(d: &Doc) -> Doc {
+    match d {
+        Doc::Line => Doc::Text(" ".to_owned()),
+        Doc::SoftLine => Doc::Nil,
+        Doc::FlatAlt(flat, _) => flatten(flat),
+        Doc::Group(inner) => flatten(inner),
+        Doc::Indent(n, inner) => Doc::Indent(*n, Box::new(flatten(inner))),
+        Doc::Align(inner) => Doc::Align(Box::new(flatten(inner))),
+        Doc::Concat(parts) => Doc::Concat(parts.iter().map(flatten).collect()),
+        Doc::Nil | Doc::Text(_) | Doc::HardLine | Doc::Trivia(_) => d.clone(),
+    }
+}
+
+/// Layout knobs for [`Block::of`] (and the [`block`] shortcut).
+///
+/// A block is the formatter's bread-and-butter delimited list: it stays on one
+/// line when it fits and explodes to one item per line when it does not. The
+/// knobs cover the variations real grammars need without a separate function
+/// (or a row of unlabelled booleans) per shape.
+#[derive(Clone, Copy, Debug)]
+pub struct Block {
+    /// Hanging indent applied to the items in the broken layout.
+    pub nest: isize,
+    /// Put a space just inside the delimiters in the flat layout (`{ a, b }`).
+    pub pad: bool,
+    /// Emit the separator after the final item in the broken layout.
+    pub trailing: bool,
+}
+
+impl Default for Block {
+    fn default() -> Self {
+        Self {
+            nest: 2,
+            pad: false,
+            trailing: false,
+        }
+    }
+}
+
+impl Block {
+    /// Pad the flat layout with a space just inside each delimiter (`{ a, b
+    /// }`).
+    #[must_use]
+    pub const fn padded(mut self) -> Self {
+        self.pad = true;
+        self
+    }
+
+    /// Emit the separator after the final item when the block breaks.
+    #[must_use]
+    pub const fn trailing(mut self) -> Self {
+        self.trailing = true;
+        self
+    }
+
+    /// Override the hanging indent (default 2).
+    #[must_use]
+    pub const fn nest(mut self, n: isize) -> Self {
+        self.nest = n;
+        self
+    }
+
+    /// Build the delimited group. `sep` goes between items (and after the last
+    /// when [`Block::trailing`] is set); the line break itself is supplied by
+    /// the block, so pass just the punctuation (e.g. [`comma`]).
+    #[must_use]
+    pub fn of<I: IntoIterator<Item = Doc>>(
+        self,
+        open: Doc,
+        close: Doc,
+        sep: &Doc,
+        items: I,
+    ) -> Doc {
+        let edge = if self.pad { line() } else { softline() };
+        let between = sep.clone().append(line());
+        let body = concat(punctuate(&between, items));
+        let trail = if self.trailing {
+            flat_alt(nil(), sep.clone())
+        } else {
+            nil()
+        };
+        group(concat([
+            open,
+            indent(self.nest, concat([edge.clone(), body, trail])),
+            edge,
+            close,
+        ]))
+    }
+}
+
+/// A delimited list that stays on one line when it fits and breaks to one item
+/// per line (hanging-indented two spaces) when it does not — the everyday
+/// `(a, b)`-style layout. Reach for [`Block`] when you need padded braces, a
+/// trailing separator, or a different indent.
+#[must_use]
+pub fn block<I: IntoIterator<Item = Doc>>(open: Doc, close: Doc, sep: &Doc, items: I) -> Doc {
+    Block::default().of(open, close, sep, items)
+}
