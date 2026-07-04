@@ -201,15 +201,21 @@ fn newline(out: &mut String, col: &mut usize, indent: isize) {
     *col = pad;
 }
 
+/// Would rendering `doc` flat, followed by the rest of the document, keep the
+/// current line within `remaining` columns?
+///
+/// Two phases with different semantics. The candidate group itself is measured
+/// strictly flat: every `Line` is a space and a `HardLine` disqualifies the
+/// flat rendering outright. The rest of the document is then walked only to
+/// the END of the current line, mode-aware: a `Line`/`SoftLine` under a frame
+/// already in break mode, or a `HardLine` anywhere, terminates the line, so
+/// whatever follows it cannot overflow this one and the group fits. Without
+/// that stop, a group's fit would depend on the entire tail of the document,
+/// breaking groups that render well inside an already-broken parent.
 fn fits(mut remaining: usize, doc: &Doc, rest: &[Frame<'_>]) -> bool {
+    // Phase 1: the candidate, measured flat.
     let mut local: Vec<&Doc> = vec![doc];
-    let mut rest_iter = rest.iter().rev();
-
-    loop {
-        let next = local.pop().or_else(|| rest_iter.next().map(|f| f.doc));
-        let Some(d) = next else {
-            return true;
-        };
+    while let Some(d) = local.pop() {
         match d {
             Doc::Nil | Doc::Trivia(_) | Doc::SoftLine => {}
             Doc::Text(s) => {
@@ -234,6 +240,52 @@ fn fits(mut remaining: usize, doc: &Doc, rest: &[Frame<'_>]) -> bool {
             }
         }
     }
+
+    // Phase 2: the rest of the document, up to the end of the current line.
+    // Each pending frame carries its own mode; an undecided nested group is
+    // measured optimistically flat (it will get its own fit decision when
+    // rendering reaches it).
+    let mut tail: Vec<(Mode, &Doc)> = Vec::new();
+    for frame in rest.iter().rev() {
+        tail.push((frame.mode, frame.doc));
+        while let Some((mode, d)) = tail.pop() {
+            match d {
+                Doc::Nil | Doc::Trivia(_) => {}
+                Doc::Text(s) => {
+                    if s.len() > remaining {
+                        return false;
+                    }
+                    remaining -= s.len();
+                }
+                Doc::SoftLine => match mode {
+                    Mode::Flat => {}
+                    Mode::Break => return true,
+                },
+                Doc::Line => match mode {
+                    Mode::Flat => {
+                        if remaining == 0 {
+                            return false;
+                        }
+                        remaining -= 1;
+                    }
+                    Mode::Break => return true,
+                },
+                Doc::HardLine => return true,
+                Doc::Indent(_, inner) | Doc::Align(inner) => tail.push((mode, inner)),
+                Doc::Group(inner) => tail.push((Mode::Flat, inner)),
+                Doc::FlatAlt(flat, broken) => match mode {
+                    Mode::Flat => tail.push((mode, flat)),
+                    Mode::Break => tail.push((mode, broken)),
+                },
+                Doc::Concat(parts) => {
+                    for p in parts.iter().rev() {
+                        tail.push((mode, p));
+                    }
+                }
+            }
+        }
+    }
+    true
 }
 
 fn emit_trivia<K: TriviaClass>(
@@ -379,5 +431,34 @@ mod tests {
                 emit_dangling: false,
             },
         )
+    }
+
+    // A group's fit stops at the end of the current line: a hard break after
+    // the group ends the line, so a long tail on later lines cannot force the
+    // group to break.
+    #[test]
+    fn fit_stops_at_hardline_in_rest() {
+        let d =
+            group(text("(a").line(text("b)"))).hardline(text("cccccccccccccccccccccccccccccccc"));
+        assert_eq!(pretty(&d, 10), "(a b)\ncccccccccccccccccccccccccccccccc");
+    }
+
+    // Inside an already-broken parent, each child group is measured against
+    // its own line only: the first child stays flat even though a later
+    // sibling on the next line is long.
+    #[test]
+    fn fit_stops_at_break_mode_line_in_rest() {
+        let inner1 = group(text("(a").line(text("b)")));
+        let inner2 = group(text("(cccccccccc").line(text("dddddddddd)")));
+        let d = group(text("[").line(inner1).line(inner2).line(text("]")));
+        assert_eq!(pretty(&d, 12), "[\n(a b)\n(cccccccccc\ndddddddddd)\n]");
+    }
+
+    // The candidate group itself is still measured strictly flat: a hard line
+    // inside the group disqualifies the flat rendering.
+    #[test]
+    fn hardline_inside_group_still_breaks_it() {
+        let d = group(text("a").hardline(text("b")).line(text("c")));
+        assert_eq!(pretty(&d, 80), "a\nb\nc");
     }
 }
