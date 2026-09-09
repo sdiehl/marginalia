@@ -39,17 +39,24 @@ impl TriviaClass for BuiltinKind {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Trivia<K = BuiltinKind> {
     /// A comment, with its kind tag and verbatim source text.
-    Comment { kind: K, text: String },
+    Comment {
+        /// The user's classification of this comment.
+        kind: K,
+        /// Verbatim source text, delimiters included.
+        text: String,
+    },
     /// A run of two or more newlines (blank line) between semantic tokens.
     BlankLine,
 }
 
 impl<K> Trivia<K> {
+    /// True for [`Trivia::BlankLine`].
     #[must_use]
     pub const fn is_blank(&self) -> bool {
         matches!(self, Self::BlankLine)
     }
 
+    /// The verbatim comment text, or `None` for a blank line.
     #[must_use]
     pub fn text(&self) -> Option<&str> {
         match self {
@@ -58,6 +65,7 @@ impl<K> Trivia<K> {
         }
     }
 
+    /// The comment's kind tag, or `None` for a blank line.
     #[must_use]
     pub const fn kind(&self) -> Option<&K> {
         match self {

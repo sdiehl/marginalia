@@ -12,7 +12,36 @@
 //! richer classification through every layer. The default `K = BuiltinKind`
 //! covers the common line/block distinction without any extra wiring.
 //!
+//! The layers in miniature, with the spans written out by hand where a real
+//! integration would get them from the lexer and the AST:
+//!
+//! ```
+//! use marginalia::{
+//!     attach::{attach, AttachOptions},
+//!     pretty::{render, text, with_trivia, RenderOpts},
+//!     span, Trivia, TriviaEvent, TriviaTable,
+//! };
+//!
+//! let source = "a; // note\nb;";
+//! let (a, b) = (span(0, 2), span(11, 13));
+//!
+//! // A `TriviaLexer` fills this while the parser runs.
+//! let table: TriviaTable = [TriviaEvent {
+//!     span: span(3, 10),
+//!     trivia: Trivia::line("// note"),
+//! }]
+//! .into_iter()
+//! .collect();
+//!
+//! let map = attach(source, &table, [a, b], AttachOptions::default());
+//! let doc = with_trivia(a, text("a;")).hardline(with_trivia(b, text("b;")));
+//!
+//! assert_eq!(render(&doc, &map, RenderOpts::default()), "a; // note\nb;");
+//! ```
+//!
 //! See the `calc` example for an end-to-end integration.
+
+#![warn(missing_docs)]
 
 mod classify;
 mod lexer;
@@ -28,3 +57,8 @@ pub use lexer::TriviaLexer;
 pub use span::{span, Span};
 pub use table::{TriviaEvent, TriviaTable};
 pub use trivia::{BuiltinKind, Trivia, TriviaClass};
+
+/// Doctests the README so its integration sketch cannot drift from the API.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct Readme;

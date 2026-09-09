@@ -3,8 +3,10 @@ use std::collections::HashSet;
 use super::doc::{Doc, Side, TriviaSlot};
 use crate::{attach::CommentMap, trivia::TriviaClass, Span, Trivia};
 
+/// Knobs for [`render`].
 #[derive(Clone, Copy, Debug)]
 pub struct RenderOpts {
+    /// Maximum line width, in columns, that groups are fitted against.
     pub width: usize,
     /// Starting indentation level, in columns. The document renders as if the
     /// cursor already sits at this column: width is budgeted from here and
@@ -33,17 +35,22 @@ enum Mode {
 }
 
 struct Frame<'a> {
-    indent: isize,
+    indent: usize,
     mode: Mode,
     doc: &'a Doc,
 }
 
+/// Lay out `doc` at the given width, filling its trivia slots from
+/// `comments`.
+///
+/// Each `(span, side)` slot is emitted at most once per document even if the
+/// same span is wrapped twice, so [`with_trivia`](super::with_trivia) is safe
+/// to apply liberally.
 #[must_use]
 pub fn render<K: TriviaClass>(doc: &Doc, comments: &CommentMap<K>, opts: RenderOpts) -> String {
-    let base = isize::try_from(opts.indent).unwrap_or(0);
     let mut out = String::new();
     let mut stack: Vec<Frame<'_>> = vec![Frame {
-        indent: base,
+        indent: opts.indent,
         mode: Mode::Break,
         doc,
     }];
@@ -57,7 +64,7 @@ pub fn render<K: TriviaClass>(doc: &Doc, comments: &CommentMap<K>, opts: RenderO
             Doc::Nil => {}
             Doc::Text(s) => {
                 out.push_str(s);
-                col += s.len();
+                col += width(s);
             }
             Doc::Line => match mode {
                 Mode::Flat => {
@@ -72,12 +79,12 @@ pub fn render<K: TriviaClass>(doc: &Doc, comments: &CommentMap<K>, opts: RenderO
             },
             Doc::HardLine => newline(&mut out, &mut col, indent),
             Doc::Indent(n, inner) => stack.push(Frame {
-                indent: indent + n,
+                indent: indent.saturating_add_signed(*n),
                 mode,
                 doc: inner,
             }),
             Doc::Align(inner) => stack.push(Frame {
-                indent: isize::try_from(col).unwrap_or(indent),
+                indent: col,
                 mode,
                 doc: inner,
             }),
@@ -93,11 +100,9 @@ pub fn render<K: TriviaClass>(doc: &Doc, comments: &CommentMap<K>, opts: RenderO
                 });
             }
             Doc::Group(inner) => {
-                let inner_indent = usize::try_from(indent.max(0)).unwrap_or(0);
                 let chosen = if fits(opts.width.saturating_sub(col), inner, &stack) {
                     Mode::Flat
                 } else {
-                    let _ = inner_indent;
                     Mode::Break
                 };
                 stack.push(Frame {
@@ -184,7 +189,7 @@ fn emit_dangling<K>(items: &[Trivia<K>], out: &mut String, col: &mut usize) {
                     *col = 0;
                 }
                 out.push_str(text);
-                *col += text.len();
+                *col += width(text);
                 out.push('\n');
                 *col = 0;
             }
@@ -192,13 +197,23 @@ fn emit_dangling<K>(items: &[Trivia<K>], out: &mut String, col: &mut usize) {
     }
 }
 
-fn newline(out: &mut String, col: &mut usize, indent: isize) {
+fn newline(out: &mut String, col: &mut usize, indent: usize) {
     out.push('\n');
-    let pad = usize::try_from(indent.max(0)).unwrap_or(0);
-    for _ in 0..pad {
+    for _ in 0..indent {
         out.push(' ');
     }
-    *col = pad;
+    *col = indent;
+}
+
+/// Display width of `s`, in columns.
+///
+/// Counted in Unicode scalar values rather than bytes, so a non-ASCII
+/// identifier or comment budgets the same as its ASCII equivalent. Combining
+/// marks and East Asian wide characters still count as one column each; a
+/// formatter that needs those exact is better served by measuring its own
+/// text and inserting explicit breaks.
+fn width(s: &str) -> usize {
+    s.chars().count()
 }
 
 /// Would rendering `doc` flat, followed by the rest of the document, keep the
@@ -219,10 +234,11 @@ fn fits(mut remaining: usize, doc: &Doc, rest: &[Frame<'_>]) -> bool {
         match d {
             Doc::Nil | Doc::Trivia(_) | Doc::SoftLine => {}
             Doc::Text(s) => {
-                if s.len() > remaining {
+                let w = width(s);
+                if w > remaining {
                     return false;
                 }
-                remaining -= s.len();
+                remaining -= w;
             }
             Doc::Line => {
                 if remaining == 0 {
@@ -252,10 +268,11 @@ fn fits(mut remaining: usize, doc: &Doc, rest: &[Frame<'_>]) -> bool {
             match d {
                 Doc::Nil | Doc::Trivia(_) => {}
                 Doc::Text(s) => {
-                    if s.len() > remaining {
+                    let w = width(s);
+                    if w > remaining {
                         return false;
                     }
-                    remaining -= s.len();
+                    remaining -= w;
                 }
                 Doc::SoftLine => match mode {
                     Mode::Flat => {}
@@ -293,7 +310,7 @@ fn emit_trivia<K: TriviaClass>(
     comments: &CommentMap<K>,
     out: &mut String,
     col: &mut usize,
-    indent: isize,
+    indent: usize,
 ) {
     let items: &[Trivia<K>] = match slot.side {
         Side::Leading => comments.leading(slot.span),
@@ -312,10 +329,9 @@ fn emit_leading<K: TriviaClass>(
     items: &[Trivia<K>],
     out: &mut String,
     col: &mut usize,
-    indent: isize,
+    indent: usize,
 ) {
-    let leading_needs_newline = *col != usize::try_from(indent.max(0)).unwrap_or(0);
-    if leading_needs_newline {
+    if *col != indent {
         newline(out, col, indent);
     }
     for (i, t) in items.iter().enumerate() {
@@ -331,7 +347,7 @@ fn emit_leading<K: TriviaClass>(
                     newline(out, col, indent);
                 }
                 out.push_str(text);
-                *col += text.len();
+                *col += width(text);
             }
         }
     }
@@ -342,7 +358,7 @@ fn emit_trailing<K: TriviaClass>(
     items: &[Trivia<K>],
     out: &mut String,
     col: &mut usize,
-    indent: isize,
+    indent: usize,
 ) {
     let mut first = true;
     for t in items {
@@ -359,7 +375,7 @@ fn emit_trailing<K: TriviaClass>(
                     *col += 1;
                 }
                 out.push_str(text);
-                *col += text.len();
+                *col += width(text);
                 first = false;
             }
         }
@@ -431,6 +447,16 @@ mod tests {
                 emit_dangling: false,
             },
         )
+    }
+
+    // Width is budgeted in columns, not bytes: a multi-byte identifier must
+    // not be charged for its UTF-8 length or every group holding one breaks
+    // early.
+    #[test]
+    fn width_counts_columns_not_bytes() {
+        let d = group(text("\u{e4}\u{e4}\u{e4}").line(text("b")));
+        assert_eq!(pretty(&d, 5), "\u{e4}\u{e4}\u{e4} b");
+        assert_eq!(pretty(&d, 4), "\u{e4}\u{e4}\u{e4}\nb");
     }
 
     // A group's fit stops at the end of the current line: a hard break after

@@ -8,4 +8,4 @@ mod attacher;
 mod map;
 
 pub use attacher::{attach, AttachOptions};
-pub use map::{CommentMap, Comments, HasSpan};
+pub use map::{Anchors, CommentMap, Comments, HasSpan};

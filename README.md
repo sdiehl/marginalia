@@ -45,7 +45,7 @@ comments terminate a line.
 roundtrip and comment preservation. Read it end-to-end as the canonical integration template:
 
 ```bash
-cargo run -p marginalia-calc -- examples/calc/tests/input.calc
+cargo run -p marginalia-calc -- examples/calc/examples/sample.calc
 ```
 
 ## License

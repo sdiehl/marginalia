@@ -13,6 +13,7 @@ use crate::Span;
 /// Free functions returning [`Doc`] work equally well; the trait just gives
 /// you a uniform `node.doc()` call site.
 pub trait Format {
+    /// Lower `self` to a [`Doc`].
     fn doc(&self) -> Doc;
 }
 
