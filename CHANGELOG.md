@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.3.0] - 2026-09-09
+
+### Fixed
+
+- `pretty::render` measures line width in columns rather than UTF-8 bytes. A multi-byte identifier
+  or comment was previously charged its byte length, so any group containing one broke earlier than
+  the configured width called for. Width is counted in Unicode scalar values; combining marks and
+  East Asian wide characters still count as one column each.
+- `attach` is now `O(E log N)` in trivia events and node spans, down from `O(E * N)`. Node spans are
+  indexed under two orderings, since spans nest and neither nearest-neighbour query is monotonic in
+  the `(start, end)` order alone. Placement results are unchanged.
+- `attach` and `TriviaLexer` slice the source as bytes when looking for line breaks, so a range that
+  is not a `char` boundary can no longer be silently read as "no newline".
+
+### Added
+
+- `Doc` implements `Default`, `PartialEq`, `Eq`, `Add` (as `append`), `FromIterator<Doc>`, and
+  `From` for `String`, `&str`, and `char`.
+- `TriviaTable` implements `Extend`, `FromIterator`, and `IntoIterator` for `&TriviaTable`, and
+  gains `iter`.
+- `CommentMap` gains `iter`, `IntoIterator` for `&CommentMap`, `dangling_len`, and `comment_len`;
+  `Comments` gains `len`. The iterator is exported as `attach::Anchors`.
+- Crate-level documentation carries a runnable example covering attach and render without a parser,
+  and the README is doctested.
+
+### Changed
+
+- Every public item is documented, and `missing_docs` is enforced.
+- `into_table` and `into_parts` are `#[must_use]`.
+- Internal render indentation is tracked as `usize`, removing the `isize` conversion dance.
+
 ## [0.2.1] - 2026-07-04
 
 ### Fixed
