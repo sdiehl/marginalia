@@ -1,82 +1,71 @@
 # Changelog
 
+All notable changes to this project are documented in this file.
+
 ## [0.3.0] - 2026-09-09
 
 ### Fixed
 
-- `pretty::render` measures line width in columns rather than UTF-8 bytes. A multi-byte identifier
-  or comment was previously charged its byte length, so any group containing one broke earlier than
-  the configured width called for. Width is counted in Unicode scalar values; combining marks and
-  East Asian wide characters still count as one column each.
-- `attach` is now `O(E log N)` in trivia events and node spans, down from `O(E * N)`. Node spans are
-  indexed under two orderings, since spans nest and neither nearest-neighbour query is monotonic in
-  the `(start, end)` order alone. Placement results are unchanged.
-- `attach` and `TriviaLexer` slice the source as bytes when looking for line breaks, so a range that
-  is not a `char` boundary can no longer be silently read as "no newline".
+- `render` measures line width in Unicode scalar values, not UTF-8 bytes.
+- `attach` is `O(E log N)` in trivia events and node spans, down from `O(E * N)`.
+- `attach` and `TriviaLexer` scan for line breaks bytewise, so non-`char` boundaries are safe.
 
 ### Added
 
-- `Doc` implements `Default`, `PartialEq`, `Eq`, `Add` (as `append`), `FromIterator<Doc>`, and
-  `From` for `String`, `&str`, and `char`.
-- `TriviaTable` implements `Extend`, `FromIterator`, and `IntoIterator` for `&TriviaTable`, and
-  gains `iter`.
-- `CommentMap` gains `iter`, `IntoIterator` for `&CommentMap`, `dangling_len`, and `comment_len`;
-  `Comments` gains `len`. The iterator is exported as `attach::Anchors`.
-- Crate-level documentation carries a runnable example covering attach and render without a parser,
-  and the README is doctested.
+- `Doc` implements `Default`, `PartialEq`, `Eq`, `Add`, `FromIterator`, and `From` for strings.
+- `TriviaTable` implements `Extend`, `FromIterator`, `IntoIterator` for refs, and gains `iter`.
+- `CommentMap` gains `iter`, `dangling_len`, and `comment_len`; the iterator is `attach::Anchors`.
+- `Comments::len`, plus a runnable crate-level example covering attach and render.
 
 ### Changed
 
-- Every public item is documented, and `missing_docs` is enforced.
-- `into_table` and `into_parts` are `#[must_use]`.
-- Internal render indentation is tracked as `usize`, removing the `isize` conversion dance.
+- Every public item is documented and `missing_docs` is enforced.
+- `into_table` and `into_parts` are `#[must_use]`, and the README is doctested.
 
 ## [0.2.1] - 2026-07-04
 
 ### Fixed
 
-- `pretty::render`'s group-fit measurement now stops at the end of the current line instead of
-  measuring the entire remaining document: a `Line` or `SoftLine` belonging to an already-broken
-  enclosing frame, or a `HardLine` anywhere after the group, terminates the line, so a group that
-  fits its own line no longer breaks because of long content on later lines. A `HardLine` inside the
-  candidate group itself still disqualifies the flat rendering. Fixes staircasing of nested groups
-  inside a broken parent (every non-final element of a broken sequence previously over-broke).
+- Group fit measurement stops at the end of the line instead of measuring the rest of the document.
+- Nested groups no longer staircase inside a broken parent because of long content on later lines.
+- A `HardLine` inside the candidate group itself still disqualifies the flat rendering.
 
 ## [0.2.0] - 2026-06-16
 
 ### Added
 
-- `pretty::doc::flatten` to collapse a document onto a single line.
-- `Doc::of` constructor over any `IntoIterator<Item = Doc>`.
-- `pretty::doc::block` for rendering open/close-delimited, separated groups.
-- `pretty_at` and `pretty_flat` rendering entry points alongside `pretty`.
+- `flatten` collapses a document onto a single line.
+- `Doc::of` builds a document from any `IntoIterator<Item = Doc>`.
+- `block` and the `Block` builder (`padded`, `trailing`, `nest`) for delimited, separated groups.
+- `pretty`, `pretty_at`, and `pretty_flat` rendering shortcuts alongside `render`.
 
 ### Changed
 
-- Flattened internal rendering helpers for a simpler, more direct render path.
+- Flattened the internal render helpers for a more direct render path.
 
 ## [0.1.4] - 2026-05-22
 
 ### Changed
 
-- Generalized the trivia classifier over a `TriviaClass` kind, decoupling trivia classification from
-  concrete token types.
-- Reworked the attacher, classify, lexer, and table layers around the generic trivia kind.
+- BREAKING: `Trivia::Line` and `Trivia::Block` collapse into `Trivia::Comment { kind, text }`.
+- BREAKING: `TriviaKind` is renamed `BuiltinKind`, and `Trivia::from_kind` is removed.
+- `Trivia`, `TriviaTable`, `CommentMap`, and `Classify` are generic over a kind `K = BuiltinKind`.
 
 ### Added
 
+- `TriviaClass` trait exposing `is_line_like`, so the renderer can lay out custom kinds.
+- `Trivia::kind` accessor.
 - Pre-commit hook configuration.
 
 ## [0.1.3] - 2026-05-21
 
 ### Added
 
-- Full set of pretty-printing combinators in `pretty::doc`: layout (`align`, `hang`, `flat_alt`),
-  concatenation (`hcat`, `hsep`, `vcat`, `vsep`, `sep`, `cat`), punctuation helpers (`comma`,
-  `semi`, `colon`, `dot`, `equals`, and bracket/quote characters), enclosure (`enclose`, `parens`,
-  `brackets`, `braces`, `angles`, `dquotes`, `squotes`, `enclose_sep`, `list`, `tupled`), and
-  `punctuate`.
-- `Doc` combinator methods: `space`, `line`, `hardline`, `softline`.
+- Layout combinators `align`, `hang`, and `flat_alt`, wired through the renderer.
+- Concatenation combinators `hcat`, `hsep`, `vcat`, `vsep`, `sep`, and `cat`.
+- Enclosers `enclose`, `parens`, `brackets`, `braces`, `angles`, `dquotes`, and `squotes`.
+- `enclose_sep`, `list`, `tupled`, `punctuate`, and punctuation helpers such as `comma` and `semi`.
+- `Doc` join methods `space`, `line`, `hardline`, and `softline`.
 
 ### Fixed
 
@@ -86,13 +75,43 @@
 
 ### Added
 
-- More ergonomic API surface for spans, tables, and formatting.
-- Format helpers in `pretty::format`.
+- `Span` converts to and from `(usize, usize)` and `Range<usize>`.
+- `TriviaTable::events_in` looks up the events falling inside a span.
+- `RenderOpts::emit_dangling` appends unattached trivia at the end of the document.
+
+### Fixed
+
+- The renderer deduplicates trivia slots by `(span, side)`, so a comment is emitted at most once.
+
+### Changed
+
+- A comment after the last anchor is now dangling rather than trailing on the previous anchor.
 
 ## [0.1.1] - 2026-05-20
 
+### Changed
+
+- MSRV raised to Rust 1.95.
+- Releases publish with `cargo publish --locked`, and the `justfile` is gone.
+
 ### Added
 
-- Initial release: trivia-preserving parsing and formatting for `logos` + `lalrpop`, including the
-  lexer, trivia classification and attachment, CST tables, span handling, and the pretty-printing
-  engine.
+- Dependabot configuration.
+
+## [0.1.0] - 2026-05-20
+
+### Added
+
+- Initial release: trivia-preserving parsing and formatting for `logos` and `lalrpop`.
+- `TriviaLexer` records comments and blank lines on the side while the parser sees only tokens.
+- `attach` places trivia events on AST node spans as leading, trailing, or dangling comments.
+- `pretty` renders a `Doc` IR whose trivia slots resolve against a `CommentMap`.
+
+[0.3.0]: https://github.com/sdiehl/marginalia/releases/tag/v0.3.0
+[0.2.1]: https://github.com/sdiehl/marginalia/releases/tag/v0.2.1
+[0.2.0]: https://github.com/sdiehl/marginalia/releases/tag/v0.2.0
+[0.1.4]: https://github.com/sdiehl/marginalia/releases/tag/v0.1.4
+[0.1.3]: https://github.com/sdiehl/marginalia/releases/tag/v0.1.3
+[0.1.2]: https://github.com/sdiehl/marginalia/releases/tag/v0.1.2
+[0.1.1]: https://github.com/sdiehl/marginalia/releases/tag/v0.1.1
+[0.1.0]: https://github.com/sdiehl/marginalia/releases/tag/v0.1.0
