@@ -34,10 +34,18 @@ enum Mode {
     Break,
 }
 
+/// What a pending frame renders: a document, or the items of a
+/// [`Doc::Fill`](Doc::Fill) that have not been placed yet.
+#[derive(Clone, Copy)]
+enum Item<'a> {
+    Node(&'a Doc),
+    Fill(&'a [Doc]),
+}
+
 struct Frame<'a> {
     indent: usize,
     mode: Mode,
-    doc: &'a Doc,
+    item: Item<'a>,
 }
 
 /// Lay out `doc` at the given width, filling its trivia slots from
@@ -52,14 +60,43 @@ pub fn render<K: TriviaClass>(doc: &Doc, comments: &CommentMap<K>, opts: RenderO
     let mut stack: Vec<Frame<'_>> = vec![Frame {
         indent: opts.indent,
         mode: Mode::Break,
-        doc,
+        item: Item::Node(doc),
     }];
     // Start as if the cursor is already at `indent`, so width budgeting and
     // group-fit decisions account for the slot the caller placed us in.
     let mut col: usize = opts.indent;
     let mut emitted: HashSet<(Span, Side)> = HashSet::new();
 
-    while let Some(Frame { indent, mode, doc }) = stack.pop() {
+    while let Some(Frame { indent, mode, item }) = stack.pop() {
+        let doc = match item {
+            Item::Node(d) => d,
+            Item::Fill(items) => {
+                // Each of these is preceded by a separator. Decide it against
+                // the column we have actually reached, with the rest of the
+                // items already back on the stack so the fit check can see
+                // that the line ends after this one either way.
+                let Some((head, tail)) = items.split_first() else {
+                    continue;
+                };
+                stack.push(Frame {
+                    indent,
+                    mode,
+                    item: Item::Fill(tail),
+                });
+                if fits(opts.width.saturating_sub(col + 1), head, &stack) {
+                    out.push(' ');
+                    col += 1;
+                } else {
+                    newline(&mut out, &mut col, indent);
+                }
+                stack.push(Frame {
+                    indent,
+                    mode: fit_mode(opts.width, col, head, &stack),
+                    item: Item::Node(head),
+                });
+                continue;
+            }
+        };
         match doc {
             Doc::Nil => {}
             Doc::Text(s) => {
@@ -81,12 +118,12 @@ pub fn render<K: TriviaClass>(doc: &Doc, comments: &CommentMap<K>, opts: RenderO
             Doc::Indent(n, inner) => stack.push(Frame {
                 indent: indent.saturating_add_signed(*n),
                 mode,
-                doc: inner,
+                item: Item::Node(inner),
             }),
             Doc::Align(inner) => stack.push(Frame {
                 indent: col,
                 mode,
-                doc: inner,
+                item: Item::Node(inner),
             }),
             Doc::FlatAlt(flat, broken) => {
                 let chosen = match mode {
@@ -96,7 +133,7 @@ pub fn render<K: TriviaClass>(doc: &Doc, comments: &CommentMap<K>, opts: RenderO
                 stack.push(Frame {
                     indent,
                     mode,
-                    doc: chosen,
+                    item: Item::Node(chosen),
                 });
             }
             Doc::Group(inner) => {
@@ -108,7 +145,7 @@ pub fn render<K: TriviaClass>(doc: &Doc, comments: &CommentMap<K>, opts: RenderO
                 stack.push(Frame {
                     indent,
                     mode: chosen,
-                    doc: inner,
+                    item: Item::Node(inner),
                 });
             }
             Doc::Concat(parts) => {
@@ -116,7 +153,23 @@ pub fn render<K: TriviaClass>(doc: &Doc, comments: &CommentMap<K>, opts: RenderO
                     stack.push(Frame {
                         indent,
                         mode,
-                        doc: p,
+                        item: Item::Node(p),
+                    });
+                }
+            }
+            Doc::Fill(parts) => {
+                // The first item takes the current line as it finds it; only
+                // the ones after it get a separator to decide.
+                if let Some((head, tail)) = parts.split_first() {
+                    stack.push(Frame {
+                        indent,
+                        mode,
+                        item: Item::Fill(tail),
+                    });
+                    stack.push(Frame {
+                        indent,
+                        mode: fit_mode(opts.width, col, head, &stack),
+                        item: Item::Node(head),
                     });
                 }
             }
@@ -197,6 +250,15 @@ fn emit_dangling<K>(items: &[Trivia<K>], out: &mut String, col: &mut usize) {
     }
 }
 
+/// Whether a fill item placed at `col` can render flat there.
+fn fit_mode(width: usize, col: usize, doc: &Doc, rest: &[Frame<'_>]) -> Mode {
+    if fits(width.saturating_sub(col), doc, rest) {
+        Mode::Flat
+    } else {
+        Mode::Break
+    }
+}
+
 fn newline(out: &mut String, col: &mut usize, indent: usize) {
     out.push('\n');
     for _ in 0..indent {
@@ -254,6 +316,17 @@ fn fits(mut remaining: usize, doc: &Doc, rest: &[Frame<'_>]) -> bool {
                     local.push(p);
                 }
             }
+            Doc::Fill(parts) => {
+                if let Some(extra) = parts.len().checked_sub(1) {
+                    if extra > remaining {
+                        return false;
+                    }
+                    remaining -= extra;
+                }
+                for p in parts.iter().rev() {
+                    local.push(p);
+                }
+            }
         }
     }
 
@@ -263,7 +336,18 @@ fn fits(mut remaining: usize, doc: &Doc, rest: &[Frame<'_>]) -> bool {
     // rendering reaches it).
     let mut tail: Vec<(Mode, &Doc)> = Vec::new();
     for frame in rest.iter().rev() {
-        tail.push((frame.mode, frame.doc));
+        match frame.item {
+            Item::Node(d) => tail.push((frame.mode, d)),
+            // A fill with items left to place ends this line at the latest
+            // where those items go, so nothing beyond it can overflow it.
+            // An exhausted one contributes nothing and the walk continues.
+            Item::Fill(items) => {
+                if items.is_empty() {
+                    continue;
+                }
+                return true;
+            }
+        }
         while let Some((mode, d)) = tail.pop() {
             match d {
                 Doc::Nil | Doc::Trivia(_) => {}
@@ -297,6 +381,11 @@ fn fits(mut remaining: usize, doc: &Doc, rest: &[Frame<'_>]) -> bool {
                 Doc::Concat(parts) => {
                     for p in parts.iter().rev() {
                         tail.push((mode, p));
+                    }
+                }
+                Doc::Fill(parts) => {
+                    if !parts.is_empty() {
+                        return true;
                     }
                 }
             }
@@ -385,7 +474,8 @@ fn emit_trailing<K: TriviaClass>(
 #[cfg(test)]
 mod tests {
     use crate::pretty::{
-        block, comma, flatten, group, lparen, pretty, pretty_flat, rparen, text, Block, RenderOpts,
+        block, comma, fill_sep, flatten, group, indent, lparen, pretty, pretty_flat, punctuate_end,
+        rparen, text, Block, RenderOpts,
     };
 
     // A group that breaks at a narrow width flattens back onto one line.
@@ -426,6 +516,39 @@ mod tests {
         assert_eq!(pretty(&flat, 80), "{ x = 1, y = 2 }");
         let broken = style.of(text("{"), text("}"), &comma(), items());
         assert_eq!(pretty(&broken, 5), "{\n  x = 1,\n  y = 2,\n}");
+    }
+
+    // A fill packs as many items per line as fit, where a group would give
+    // each its own line once the whole run overflows.
+    #[test]
+    fn fill_packs_lines() {
+        let items = || punctuate_end(&comma(), (1..=9).map(|i| text(format!("item{i}"))));
+        let flat = "item1, item2, item3, item4, item5, item6, item7, item8, item9";
+        assert_eq!(pretty(&fill_sep(items()), 80), flat);
+        assert_eq!(
+            pretty(&fill_sep(items()), 30),
+            "item1, item2, item3, item4,\nitem5, item6, item7, item8,\nitem9"
+        );
+    }
+
+    // An item that does not fit flat takes a fresh line, and breaks internally
+    // there if it still does not fit. What follows packs against the line it
+    // ended on rather than starting another.
+    #[test]
+    fn fill_breaks_an_oversized_item() {
+        let wide = group(text("(aaa").line(text("bbb)")));
+        let d = fill_sep([text("x,"), wide, text("y")]);
+        assert_eq!(pretty(&d, 8), "x,\n(aaa\nbbb) y");
+    }
+
+    // Continuation lines land on the enclosing indent.
+    #[test]
+    fn fill_indents_continuations() {
+        let items = punctuate_end(&comma(), (1..=4).map(|i| text(format!("aaa{i}"))));
+        assert_eq!(
+            pretty(&indent(2, fill_sep(items)), 14),
+            "aaa1, aaa2,\n  aaa3, aaa4"
+        );
     }
 
     // `RenderOpts.indent` budgets width from the slot and pads continuation

@@ -21,10 +21,10 @@ mod render;
 
 pub use doc::{
     align, angles, block, braces, brackets, cat, char, colon, comma, concat, dot, dquote, dquotes,
-    enclose, enclose_sep, equals, flat_alt, flatten, group, hang, hardline, hcat, hsep, indent,
-    langle, lbrace, lbracket, line, list, lparen, nil, parens, punctuate, rangle, rbrace, rbracket,
-    rparen, semi, sep, softline, space, squote, squotes, text, trivia, tupled, vcat, vsep, Block,
-    Doc, Side, TriviaSlot,
+    enclose, enclose_sep, equals, fill_sep, flat_alt, flatten, group, hang, hardline, hcat, hsep,
+    indent, langle, lbrace, lbracket, line, list, lparen, nil, parens, punctuate, punctuate_end,
+    rangle, rbrace, rbracket, rparen, semi, sep, softline, space, squote, squotes, text, trivia,
+    tupled, vcat, vsep, Block, Doc, Side, TriviaSlot,
 };
 pub use format::{with_trivia, Format};
 pub use render::{pretty, pretty_at, pretty_flat, render, RenderOpts};

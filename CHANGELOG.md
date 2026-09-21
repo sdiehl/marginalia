@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.4.0] - 2026-09-21
+
+### Added
+
+- `Doc::Fill` and `fill_sep`, a packing layout that breaks only before an item that does not fit.
+- `punctuate_end` appends the separator to each item but the last, the counterpart of `punctuate`.
+
 ## [0.3.0] - 2026-09-09
 
 ### Fixed

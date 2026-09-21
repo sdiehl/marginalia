@@ -51,6 +51,9 @@ pub enum Doc {
     Group(Box<Doc>),
     /// Documents rendered one after another.
     Concat(Vec<Doc>),
+    /// Documents packed onto as many lines as they need, separated by a space
+    /// where the next one still fits and a newline where it does not.
+    Fill(Vec<Doc>),
     /// A slot filled from the comment map at render time.
     Trivia(TriviaSlot),
 }
@@ -206,6 +209,24 @@ pub fn cat<I: IntoIterator<Item = Doc>>(parts: I) -> Doc {
     group(interleave(parts, softline))
 }
 
+/// Pack the items onto as few lines as possible: a space before each one that
+/// still fits on the current line, a newline before each one that does not.
+///
+/// The difference from [`sep`] is per-item rather than all-or-nothing. A list
+/// of short items that overflows one line becomes a few full lines here, where
+/// `sep` would give each item a line of its own. That suits homogeneous runs
+/// (enum cases, numeric tables, a long chain of small arguments) and suits
+/// structured items badly: an item that breaks internally leaves the next one
+/// packed against its last line.
+///
+/// Separators belong on the items, via [`punctuate_end`]: a fill places each
+/// item on its own, so a separator passed as an item of its own would be free
+/// to start a line.
+#[must_use]
+pub fn fill_sep<I: IntoIterator<Item = Doc>>(parts: I) -> Doc {
+    Doc::Fill(parts.into_iter().collect())
+}
+
 /// Interpose `sep` between the items, leaving the result unconcatenated so the
 /// caller can still lay it out.
 #[must_use]
@@ -216,6 +237,21 @@ pub fn punctuate<I: IntoIterator<Item = Doc>>(sep: &Doc, parts: I) -> Vec<Doc> {
     for part in parts {
         out.push(sep.clone());
         out.push(part);
+    }
+    out
+}
+
+/// Append `sep` to every item but the last, leaving the result
+/// unconcatenated. The counterpart of [`punctuate`] for layouts that place
+/// items individually, such as [`fill_sep`], where a separator of its own
+/// could end up starting a line.
+#[must_use]
+pub fn punctuate_end<I: IntoIterator<Item = Doc>>(sep: &Doc, parts: I) -> Vec<Doc> {
+    let mut out: Vec<Doc> = parts.into_iter().collect();
+    if let Some((_, rest)) = out.split_last_mut() {
+        for part in rest {
+            *part = concat([part.clone(), sep.clone()]);
+        }
     }
     out
 }
@@ -393,6 +429,7 @@ pub fn flatten(d: &Doc) -> Doc {
         Doc::Indent(n, inner) => Doc::Indent(*n, Box::new(flatten(inner))),
         Doc::Align(inner) => Doc::Align(Box::new(flatten(inner))),
         Doc::Concat(parts) => Doc::Concat(parts.iter().map(flatten).collect()),
+        Doc::Fill(parts) => interleave(parts.iter().map(flatten), space),
         Doc::Nil | Doc::Text(_) | Doc::HardLine | Doc::Trivia(_) => d.clone(),
     }
 }
