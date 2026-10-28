@@ -166,7 +166,7 @@ mod tests {
         let map = attach(source, &events, [a, b], AttachOptions::default());
         assert_eq!(map.trailing(a), [Trivia::line("// one")]);
         assert_eq!(map.leading(b), [Trivia::line("// two")]);
-        assert!(map.dangling().is_empty());
+        assert_eq!(map.dangling(), []);
     }
 
     // With `trailing_same_line` off, the same-line comment leads the next node
@@ -181,7 +181,7 @@ mod tests {
             trailing_same_line: false,
         };
         let map = attach(source, &events, [a, b], opts);
-        assert!(map.trailing(a).is_empty());
+        assert_eq!(map.trailing(a), []);
         assert_eq!(map.leading(b), [Trivia::line("// one")]);
     }
 
@@ -207,7 +207,7 @@ mod tests {
         let events = table(&[(span(2, 4), Trivia::BlankLine)]);
 
         let map = attach(source, &events, [a, b], AttachOptions::default());
-        assert!(map.trailing(a).is_empty());
+        assert_eq!(map.trailing(a), []);
         assert_eq!(map.leading(b), [Trivia::BlankLine]);
     }
 
